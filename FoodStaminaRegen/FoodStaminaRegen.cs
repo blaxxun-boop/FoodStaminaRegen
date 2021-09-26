@@ -3,26 +3,52 @@ using BepInEx.Configuration;
 using HarmonyLib;
 using System.Collections.Generic;
 using System.Linq;
+using ServerSync;
 
 namespace FoodStaminaRegen
 {
-	[BepInPlugin("org.bepinex.plugins.foodstaminaregen", "Stamina Regeneration from Food", "1.3")]
+	[BepInPlugin(ModGUID, ModName, ModVersion)]
 	public class FoodStaminaRegen : BaseUnityPlugin
 	{
-		private static ConfigEntry<bool> isEnabled;
+		private const string ModName = "Stamina Regeneration from Food";
+		private const string ModVersion = "1.4";
+		private const string ModGUID = "org.bepinex.plugins.foodstaminaregen";
+
+		private static readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
+
+		private enum Toggle
+		{
+			On = 1,
+			Off = 0
+		}
+		
+		private static ConfigEntry<Toggle> serverConfigLocked = null!;
+		private static ConfigEntry<Toggle> isEnabled = null!;
+
+		private ConfigEntry<T> config<T>(string group, string name, T value, ConfigDescription description, bool synchronizedSetting = true)
+		{
+			ConfigEntry<T> configEntry = Config.Bind(group, name, value, description);
+
+			SyncedConfigEntry<T> syncedConfigEntry = configSync.AddConfigEntry(configEntry);
+			syncedConfigEntry.SynchronizedConfig = synchronizedSetting;
+
+			return configEntry;
+		}
 
 		private void Awake()
 		{
-			isEnabled = Config.Bind("General", "Enabled", true, "If the mod is enabled.");
+			serverConfigLocked = config("1 - General", "Config is locked", Toggle.Off, new ConfigDescription("If on, only admins can change the configuration on a server."));
+			configSync.AddLockingConfigEntry(serverConfigLocked);
+			isEnabled = config("1 - General", "Enabled", Toggle.On, new ConfigDescription("If the mod is enabled."));
 
 			mod = this;
 
-			Harmony harmony = new Harmony("org.bepinex.plugins.foodstaminaregen");
+			Harmony harmony = new(ModGUID);
 			harmony.PatchAll();
 		}
 
-		private static FoodStaminaRegen mod;
-		private static Dictionary<string, ConfigEntry<float>> staminaRegen = new Dictionary<string, ConfigEntry<float>>();
+		private static FoodStaminaRegen mod = null!;
+		private static Dictionary<string, ConfigEntry<float>> staminaRegen = new();
 
 		[HarmonyPatch(typeof(ObjectDB), "Awake")]
 		private class ReadFoodConfigs
@@ -30,9 +56,12 @@ namespace FoodStaminaRegen
 			[HarmonyPriority(Priority.Last)]
 			private static void Postfix()
 			{
+				Localization english = new();
+				english.SetLanguage("English");
+
 				List<ItemDrop.ItemData.SharedData> items = ObjectDB.instance.m_items.Select(i => i.GetComponent<ItemDrop>().m_itemData.m_shared).ToList();
 				staminaRegen = items.Where(item => item.m_itemType == ItemDrop.ItemData.ItemType.Consumable && item.m_foodStamina > 0)
-					.ToDictionary(item => item.m_name, item => mod.Config.Bind("Food", Localization.instance.Localize(item.m_name).Replace("'", "").Replace("\"", ""), item.m_foodStamina * 0.02f));
+					.ToDictionary(item => item.m_name, item => mod.config("2 - Food", english.Localize(item.m_name).Replace("'", "").Replace("\"", ""), item.m_foodStamina * 0.03f, new ConfigDescription("", null, new ConfigurationManagerAttributes { DispName = Localization.instance.Localize(item.m_name).Replace("'", "").Replace("\"", "") })));
 			}
 		}
 
@@ -43,17 +72,13 @@ namespace FoodStaminaRegen
 
 			private static void Prefix(Player __instance)
 			{
-				if (isEnabled.Value)
+				if (isEnabled.Value == Toggle.On)
 				{
-					if (basisStaminaRegen == null)
-					{
-						basisStaminaRegen = __instance.m_staminaRegen;
-					}
+					basisStaminaRegen ??= __instance.m_staminaRegen;
 
-					float totalStaminaRegen = (float) basisStaminaRegen;
+					float totalStaminaRegen = (float)basisStaminaRegen;
 
-					List<Player.Food> foods = (List<Player.Food>) AccessTools.DeclaredField(typeof(Player), "m_foods").GetValue(__instance);
-					foreach (Player.Food food in foods)
+					foreach (Player.Food food in __instance.m_foods)
 					{
 						if (staminaRegen.TryGetValue(food.m_item.m_shared.m_name, out ConfigEntry<float> regen))
 						{
@@ -71,7 +96,7 @@ namespace FoodStaminaRegen
 		{
 			private static void Postfix(ItemDrop.ItemData item, ref string __result)
 			{
-				if (isEnabled.Value && staminaRegen.TryGetValue(item.m_shared.m_name, out ConfigEntry<float> regen))
+				if (isEnabled.Value == Toggle.On && staminaRegen.TryGetValue(item.m_shared.m_name, out ConfigEntry<float> regen))
 				{
 					__result += "\nEndurance: <color=orange>" + regen.Value * 10 + "%</color>";
 				}
