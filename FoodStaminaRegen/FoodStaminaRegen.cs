@@ -11,7 +11,7 @@ namespace FoodStaminaRegen
 	public class FoodStaminaRegen : BaseUnityPlugin
 	{
 		private const string ModName = "Stamina Regeneration from Food";
-		private const string ModVersion = "1.4";
+		private const string ModVersion = "1.5";
 		private const string ModGUID = "org.bepinex.plugins.foodstaminaregen";
 
 		private static readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -24,6 +24,7 @@ namespace FoodStaminaRegen
 		
 		private static ConfigEntry<Toggle> serverConfigLocked = null!;
 		private static ConfigEntry<Toggle> isEnabled = null!;
+		private static ConfigEntry<float> regMultiplier = null!;
 
 		private ConfigEntry<T> config<T>(string group, string name, T value, ConfigDescription description, bool synchronizedSetting = true)
 		{
@@ -40,6 +41,7 @@ namespace FoodStaminaRegen
 			serverConfigLocked = config("1 - General", "Config is locked", Toggle.Off, new ConfigDescription("If on, only admins can change the configuration on a server."));
 			configSync.AddLockingConfigEntry(serverConfigLocked);
 			isEnabled = config("1 - General", "Enabled", Toggle.On, new ConfigDescription("If the mod is enabled."));
+			regMultiplier = config("1 - General", "Multiplier for all foods", 1f, new ConfigDescription("Can be used to multiply all base regeneration values configured below."));
 
 			mod = this;
 
@@ -57,7 +59,7 @@ namespace FoodStaminaRegen
 			private static void Postfix()
 			{
 				Localization english = new();
-				english.SetLanguage("English");
+				english.SetupLanguage("English");
 
 				List<ItemDrop.ItemData.SharedData> items = ObjectDB.instance.m_items.Select(i => i.GetComponent<ItemDrop>().m_itemData.m_shared).ToList();
 				staminaRegen = items.Where(item => item.m_itemType == ItemDrop.ItemData.ItemType.Consumable && item.m_foodStamina > 0)
@@ -82,7 +84,7 @@ namespace FoodStaminaRegen
 					{
 						if (staminaRegen.TryGetValue(food.m_item.m_shared.m_name, out ConfigEntry<float> regen))
 						{
-							totalStaminaRegen += regen.Value;
+							totalStaminaRegen += regen.Value * regMultiplier.Value;
 						}
 					}
 
@@ -98,7 +100,7 @@ namespace FoodStaminaRegen
 			{
 				if (isEnabled.Value == Toggle.On && staminaRegen.TryGetValue(item.m_shared.m_name, out ConfigEntry<float> regen))
 				{
-					__result += "\nEndurance: <color=orange>" + regen.Value * 10 + "%</color>";
+					__result += "\nEndurance: <color=orange>" + regen.Value * regMultiplier.Value * 10 + "%</color>";
 				}
 			}
 		}
