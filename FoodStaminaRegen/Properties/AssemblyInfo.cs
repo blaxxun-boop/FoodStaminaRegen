@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 // Attribute gesteuert. Ändern Sie diese Attributwerte, um die Informationen zu ändern,
 // die einer Assembly zugeordnet sind.
 [assembly: AssemblyTitle("FoodStaminaRegen")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("https://valheim.thunderstore.io/package/Smoothbrain/StaminaRegenerationFromFood")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("FoodStaminaRegen")]
