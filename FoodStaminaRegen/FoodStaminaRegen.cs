@@ -4,6 +4,7 @@ using HarmonyLib;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using LocalizationManager;
 using ServerSync;
 
 namespace FoodStaminaRegen;
@@ -13,7 +14,7 @@ namespace FoodStaminaRegen;
 public class FoodStaminaRegen : BaseUnityPlugin
 {
 	private const string ModName = "Stamina Regeneration from Food";
-	private const string ModVersion = "1.5.5";
+	private const string ModVersion = "1.5.6";
 	private const string ModGUID = "org.bepinex.plugins.foodstaminaregen";
 
 	private static readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -40,6 +41,8 @@ public class FoodStaminaRegen : BaseUnityPlugin
 
 	private void Awake()
 	{
+		Localizer.Load();
+		
 		serverConfigLocked = config("1 - General", "Config is locked", Toggle.On, new ConfigDescription("If on, only admins can change the configuration on a server."));
 		configSync.AddLockingConfigEntry(serverConfigLocked);
 		isEnabled = config("1 - General", "Enabled", Toggle.On, new ConfigDescription("If the mod is enabled."));
@@ -97,14 +100,14 @@ public class FoodStaminaRegen : BaseUnityPlugin
 		}
 	}
 
-	[HarmonyPatch(typeof(ItemDrop.ItemData), "GetTooltip", typeof(ItemDrop.ItemData), typeof(int), typeof(bool), typeof(float))]
+	[HarmonyPatch(typeof(ItemDrop.ItemData), nameof(ItemDrop.ItemData.GetTooltip), typeof(ItemDrop.ItemData), typeof(int), typeof(bool), typeof(float), typeof(int))]
 	private class FoodDescPatch
 	{
 		private static void Postfix(ItemDrop.ItemData item, ref string __result)
 		{
 			if (isEnabled.Value == Toggle.On && staminaRegen.TryGetValue(item.m_shared.m_name, out ConfigEntry<float> regen))
 			{
-				__result += "\nEndurance: <color=orange>" + regen.Value * regMultiplier.Value * 10 + "%</color>";
+				__result += "\n$fsr_stat_name: <color=orange>" + regen.Value * regMultiplier.Value * 10 + "%</color>";
 			}
 		}
 	}
