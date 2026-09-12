@@ -14,7 +14,7 @@ namespace FoodStaminaRegen;
 public class FoodStaminaRegen : BaseUnityPlugin
 {
 	private const string ModName = "Stamina Regeneration from Food";
-	private const string ModVersion = "1.5.6";
+	private const string ModVersion = "1.5.7";
 	private const string ModGUID = "org.bepinex.plugins.foodstaminaregen";
 
 	private static readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
